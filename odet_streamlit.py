@@ -7,6 +7,12 @@ import open_meteo
 import thermo as thrm
 import skewT as skt
 
+@st.cache_resource
+def get_skewt_lines():
+    stl = skt.SkewT_lines()
+    stl.calc()
+    return stl
+
 st.html("""
     <style>
         .stMainBlockContainer {
@@ -105,9 +111,7 @@ if st.session_state.meteo is not None:
         deltaTd = 0.0
 
     # Plot skew-T.
-    stl = skt.SkewT_lines()
-    stl.calc()
-    skew = skt.SkewT_plotly(stl)
+    skew = skt.SkewT_plotly(get_skewt_lines())
     model_label = models.get(st.session_state.model, st.session_state.model)
     title = f'{model_label} | {sel_date} {t:02d}:00 UTC | {lat:.2f}°N {lon:.2f}°E'
     skew.plot(title=title)
