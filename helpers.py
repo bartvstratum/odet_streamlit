@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+import thermo as thrm
+
 def parse_sounding(sounding_csv):
     """
     Read single sounding CSV into a Pandas dataframe and calculate
