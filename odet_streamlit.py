@@ -6,6 +6,7 @@ from datetime import date
 import open_meteo
 import thermo as thrm
 import skewT as skt
+from helpers import parse_sounding
 
 @st.cache_resource
 def get_skewt_lines():
@@ -76,6 +77,9 @@ with st.sidebar:
 
     fetch = st.button('Fetch & plot', type='primary', use_container_width=True)
 
+    st.header('Sounding')
+    uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
+
     st.header('Parcel control')
     launch_parcel = st.checkbox('Launch parcel', key='launch_parcel', value=False)
     if launch_parcel:
@@ -83,7 +87,7 @@ with st.sidebar:
         deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaT')
         deltaTd = st.slider('ΔTd (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaTd')
 
-# Fetch data.
+# Fetch model data.
 if 'meteo' not in st.session_state:
     st.session_state.meteo = None
 
@@ -93,36 +97,64 @@ if fetch:
         st.session_state.meteo = open_meteo.get_sounding(lat, lon, model, date_str)
         st.session_state.model = model
 
+# Parse uploaded sounding.
+sounding_df = None
+if uploaded_file is not None:
+    sounding_df = parse_sounding(uploaded_file)
+
 # Main panel.
-if st.session_state.meteo is not None:
-    meteo = st.session_state.meteo
-    n_times = meteo['n_times']
-    _, col_slider, _ = st.columns([1, 2, 1])
-    with col_slider:
-        t = st.slider('Hour (UTC)', min_value=0, max_value=n_times - 1, value=min(12, n_times - 1))
+has_meteo = st.session_state.meteo is not None
+has_sounding = sounding_df is not None
 
-    T = meteo['temperature'][t, :]
-    Td = meteo['dew_point'][t, :]
-    p = meteo['p']
-
-    # Parcel sliders below plot (read before plotting so values are available).
+if has_meteo or has_sounding:
     if not launch_parcel:
         deltaT = 0.0
         deltaTd = 0.0
 
+    if has_meteo:
+        meteo = st.session_state.meteo
+        n_times = meteo['n_times']
+        _, col_slider, _ = st.columns([1, 2, 1])
+        with col_slider:
+            t = st.slider('Hour (UTC)', min_value=0, max_value=n_times - 1, value=min(12, n_times - 1))
+        T = meteo['temperature'][t, :]
+        Td = meteo['dew_point'][t, :]
+        p = meteo['p']
+
+    # Build title.
+    if has_meteo:
+        model_label = models.get(st.session_state.model, st.session_state.model)
+        title = f'{model_label} | {sel_date} {t:02d}:00 UTC | {lat:.2f}°N {lon:.2f}°E'
+    else:
+        ts = sounding_df.index[0]
+        title = f'Sounding | {ts.strftime("%Y-%m-%d %H:%M")} UTC'
+
     # Plot skew-T.
     skew = skt.SkewT_plotly(get_skewt_lines())
-    model_label = models.get(st.session_state.model, st.session_state.model)
-    title = f'{model_label} | {sel_date} {t:02d}:00 UTC | {lat:.2f}°N {lon:.2f}°E'
     skew.plot(title=title)
-    skew.plot_sounding(T, p, name='T', color='red')
-    skew.plot_sounding(Td, p, name='Td', color='blue')
+
+    if has_meteo:
+        skew.plot_sounding(T, p, name='T (model)', color='red')
+        skew.plot_sounding(Td, p, name='Td (model)', color='blue')
+
+    if has_sounding:
+        skew.plot_sounding(sounding_df['temperature'].values, sounding_df['pressure'].values,
+                           name='T (obs)', color='red', dash='4px,2px')
+        skew.plot_sounding(sounding_df['Td'].values, sounding_df['pressure'].values,
+                           name='Td (obs)', color='blue', dash='4px,2px')
 
     if launch_parcel:
-        p_fine = np.geomspace(p[0], p[-1], 128)
-        parcel = thrm.calc_non_entraining_parcel(T[0] + deltaT, Td[0] + deltaTd, p[0], p_fine)
+        if has_meteo:
+            T_sfc, Td_sfc, p_sfc = T[0], Td[0], p[0]
+            p_fine = np.geomspace(p[0], p[-1], 128)
+        else:
+            T_sfc  = sounding_df['temperature'].iloc[0]
+            Td_sfc = sounding_df['Td'].iloc[0]
+            p_sfc  = sounding_df['pressure'].iloc[0]
+            p_fine = np.geomspace(p_sfc, 100e2, 128)
+        parcel = thrm.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc + deltaTd, p_sfc, p_fine)
         skew.plot_non_entraining_parcel(parcel)
 
     st.plotly_chart(skew.fig, use_container_width=True)
 else:
-    st.info('Set location and time in the sidebar, then click **Fetch & plot**.')
+    st.info('Set location and time in the sidebar, then click **Fetch & plot**, or upload a sounding CSV.')

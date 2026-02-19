@@ -255,11 +255,14 @@ class SkewT_plotly:
         self.fig = fig
         return fig
 
-    def plot_sounding(self, T, p, name='', color='red', width=2):
+    def plot_sounding(self, T, p, name='', color='red', width=2, dash=None):
         x = skew_transform(T, p, self.stl.skew_factor)
+        line_kw = dict(color=color, width=width)
+        if dash is not None:
+            line_kw['dash'] = dash
         self.fig.add_trace(go.Scatter(
             x=x, y=p, mode='lines', name=name,
-            line=dict(color=color, width=width),
+            line=line_kw,
         ))
 
     def plot_non_entraining_parcel(self, parcel, name='Parcel', color='black', width=2, dash='4px,2px'):
