@@ -10,7 +10,41 @@ import thermo as thrm
 
 
 def get_meteo(lat, lon, model, pressure_lev_vars, pressure_levs, single_lev_vars, start=None, end=None, forecast_days=None):
+    """
+    Fetch hourly data from the Open-Meteo API for a given location and model.
 
+    Provide either `start` + `end` for historical/reanalysis data, or
+    `forecast_days` for a forecast. Temperatures and dew points are converted
+    from °C to K before returning.
+
+    Parameters:
+    ----------
+    lat : float
+        Latitude in degrees.
+    lon : float
+        Longitude in degrees.
+    model : str
+        Open-Meteo model identifier (e.g. 'ecmwf_ifs025').
+    pressure_lev_vars : list of str
+        Variable names to fetch on pressure levels (e.g. ['temperature', 'wind_speed']).
+    pressure_levs : list of int
+        Pressure levels in hPa (e.g. [1000, 850, 500]).
+    single_lev_vars : list of str
+        Variable names to fetch at a single level (e.g. ['temperature_2m']).
+    start : str, optional
+        Start date as 'YYYY-MM-DD' (historical mode).
+    end : str, optional
+        End date as 'YYYY-MM-DD' (historical mode).
+    forecast_days : int, optional
+        Number of forecast days (forecast mode).
+
+    Returns:
+    -------
+    dict
+        Dictionary mapping variable names to np.ndarray values.
+        Pressure-level variables have shape (n_times, n_levels);
+        single-level variables have shape (n_times,).
+    """
     if (start is not None or end is not None) and forecast_days is not None:
         raise Exception('Provide either `start` + `end` for historical data, or `forecast_days` for forecasts.')
 
@@ -82,6 +116,30 @@ def get_meteo(lat, lon, model, pressure_lev_vars, pressure_levs, single_lev_vars
 
 
 def get_sounding(lat, lon, model, date_str):
+    """
+    Fetch a full atmospheric sounding for a single day from Open-Meteo.
+
+    Retrieves pressure-level and surface variables, then derives dew-point
+    and specific humidity from relative humidity. Returns all data in SI units
+    (temperatures in K, pressure in Pa).
+
+    Parameters:
+    ----------
+    lat : float
+        Latitude in degrees.
+    lon : float
+        Longitude in degrees.
+    model : str
+        Open-Meteo model identifier (e.g. 'ecmwf_ifs025').
+    date_str : str
+        Date as 'YYYY-MM-DD'.
+
+    Returns:
+    -------
+    dict
+        Dictionary with meteo data in SI units.
+    """
+
     pressure_levs = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30]
     pressure_lev_vars = ['temperature', 'relative_humidity', 'wind_speed', 'wind_direction', 'geopotential_height']
     single_lev_vars = ['temperature_2m', 'dew_point_2m', 'precipitation', 'rain', 'showers', 'surface_pressure', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m']
