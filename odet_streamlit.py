@@ -82,8 +82,8 @@ with st.sidebar:
     launch_parcel = st.checkbox('Launch parcel', key='launch_parcel', value=False)
     if launch_parcel:
         parcel_type = st.radio('Parcel type', ['Non-entraining', 'Entraining'], horizontal=True)
-        deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaT')
-        deltaq = st.slider('Δq (g/kg)', min_value=0.0, max_value=10.0, value=0.0, step=0.1, key='deltaq') * 1e-3
+        deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=1.0, step=0.5, key='deltaT')
+        deltaq = st.slider('Δq (g/kg)', min_value=0.0, max_value=10.0, value=1.0, step=0.1, key='deltaq') * 1e-3
         if parcel_type == 'Entraining':
             area_plume = st.slider('Fire area (km²)', min_value=0.1, max_value=10.0, value=0.3, step=0.1, key='area_plume') * 1e6
 
