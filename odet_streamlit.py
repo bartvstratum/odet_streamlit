@@ -85,7 +85,7 @@ with st.sidebar:
         deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaT')
         deltaq = st.slider('Δq (g/kg)', min_value=0.0, max_value=10.0, value=0.0, step=0.1, key='deltaq') * 1e-3
         if parcel_type == 'Entraining':
-            area_plume = st.slider('Fire area (km²)', min_value=0.1, max_value=10.0, value=0.3, step=0.1) * 1e6
+            area_plume = st.slider('Fire area (km²)', min_value=0.1, max_value=10.0, value=0.3, step=0.1, key='area_plume') * 1e6
 
     st.header('Sounding')
     uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
