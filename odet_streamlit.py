@@ -75,7 +75,7 @@ with st.sidebar:
     model_keys = list(models.keys())
     model = st.selectbox('Model', model_keys, index=0, format_func=lambda k: models[k])
 
-    fetch = st.button('Fetch & plot', type='primary', use_container_width=True)
+    fetch = st.button('Fetch & plot', type='primary', width='stretch')
 
     st.header('Sounding')
     uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
@@ -155,6 +155,6 @@ if has_meteo or has_sounding:
         parcel = thrm.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc + deltaTd, p_sfc, p_fine)
         skew.plot_non_entraining_parcel(parcel)
 
-    st.plotly_chart(skew.fig, use_container_width=True)
+    st.plotly_chart(skew.fig, width='stretch')
 else:
     st.info('Set location and time in the sidebar, then click **Fetch & plot**, or upload a sounding CSV.')
