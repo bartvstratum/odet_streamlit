@@ -11,6 +11,7 @@ e0  = 611.2
 a   = 17.67
 b   = 243.5
 T0  = 273.15
+g   = 9.81
 
 # Thermo functions.
 def esat(T):
@@ -110,6 +111,29 @@ def exner(p):
     return (p / p0) ** (Rd / cp)
 
 
+def virtual_temp(T, qt, ql=0, qi=0):
+    """
+    Compute virtual temperature.
+
+    Parameters:
+    ----------
+    T : float or np.ndarray
+        Temperature in K.
+    qt : float or np.ndarray
+        Total water specific humidity in kg/kg.
+    ql : float or np.ndarray, optional
+        Liquid water specific humidity in kg/kg (default 0).
+    qi : float or np.ndarray, optional
+        Ice specific humidity in kg/kg (default 0).
+
+    Returns:
+    -------
+    float or np.ndarray
+        Virtual temperature in K.
+    """
+    return T * (1 - (1 - Rv/Rd) * qt - Rv/Rd * (ql + qi))
+
+
 def dTdp(T, p):
     """
     Compute the lapse rate dT/dp for a saturated parcel.
@@ -175,98 +199,3 @@ def calc_moist_adiabat(T_start, p):
         T_out[k, :] = T
 
     return T_out
-
-
-def find_lcl(T_sfc, Td_sfc, p_sfc, tol=5):
-    """
-    Find the Lifting Condensation Level (LCL) using bisection.
-
-    Searches for the pressure where the dry adiabat temperature
-    equals the dewpoint at constant mixing ratio.
-
-    Parameters:
-    ----------
-    T_sfc : float
-        Surface temperature in Kelvin.
-    Td_sfc : float
-        Surface dew-point temperature in Kelvin.
-    p_sfc : float
-        Surface pressure in Pa.
-    tol : float
-        Convergence tolerance in Pa (default 1 Pa).
-
-    Returns:
-    -------
-    p_lcl : float
-        LCL pressure in Pa.
-    T_lcl : float
-        LCL temperature in Kelvin.
-    """
-    theta_sfc = T_sfc / exner(p_sfc)
-    q_sfc = qsat(Td_sfc, p_sfc)
-
-    def residual(p):
-        return theta_sfc * exner(p) - dewpoint(q_sfc, p)
-
-    p_lo, p_hi = 500e2, p_sfc
-    while (p_hi - p_lo) > tol:
-        p_mid = 0.5 * (p_lo + p_hi)
-        if residual(p_mid) > 0:
-            p_hi = p_mid
-        else:
-            p_lo = p_mid
-
-    p_lcl = 0.5 * (p_lo + p_hi)
-    T_lcl = theta_sfc * exner(p_lcl)
-
-    return p_lcl, T_lcl
-
-
-def calc_non_entraining_parcel(T_sfc, Td_sfc, p_sfc, p):
-    """
-    Compute the three parcel ascent lines: isohume, dry adiabat,
-    and moist adiabat.
-
-    Parameters:
-    ----------
-    T_sfc : float
-        Surface temperature in Kelvin.
-    Td_sfc : float
-        Surface dew-point temperature in Kelvin.
-    p_sfc : float
-        Surface pressure in Pa.
-    p : np.ndarray
-        Pressure levels in Pa (decreasing, i.e. bottom to top).
-
-    Returns:
-    -------
-    dict with keys:
-        'T_isohume', 'p_isohume' : Dew-point line (constant mixing ratio), surface to LCL.
-        'T_dry', 'p_dry'         : Dry adiabat, surface to LCL.
-        'T_moist', 'p_moist'     : Moist adiabat, LCL upward.
-    """
-    theta_sfc = T_sfc / exner(p_sfc)
-    q_sfc = qsat(Td_sfc, p_sfc)
-    p_lcl, T_lcl = find_lcl(T_sfc, Td_sfc, p_sfc)
-
-    # Below LCL: isohume and dry adiabat.
-    dry_idx = np.where(p >= p_lcl)[0]
-    p_dry = np.append(p[dry_idx], p_lcl)
-    T_dry = theta_sfc * exner(p_dry)
-
-    p_isohume = p_dry.copy()
-    T_isohume = dewpoint(q_sfc, p_isohume)
-
-    # Above LCL: moist adiabat.
-    moist_idx = np.where(p < p_lcl)[0]
-    p_moist = np.concatenate(([p_lcl], p[moist_idx]))
-    T_moist = calc_moist_adiabat(np.array([T_lcl]), p_moist)[:, 0]
-
-    return dict(
-        T_isohume=T_isohume,
-        p_isohume=p_isohume,
-        T_dry=T_dry,
-        p_dry=p_dry,
-        T_moist=T_moist,
-        p_moist=p_moist,
-    )

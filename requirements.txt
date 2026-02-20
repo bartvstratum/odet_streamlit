@@ -1,6 +1,7 @@
 streamlit
 numpy
 pandas
+xarray
 matplotlib
 plotly
 openmeteo-requests

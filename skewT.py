@@ -264,6 +264,7 @@ class SkewT_plotly:
             x=x, y=p, mode='lines', name=name,
             line=line_kw,
         ))
+        return self.fig
 
     def plot_non_entraining_parcel(self, parcel, name='Parcel', color='black', width=2, dash='4px,2px'):
         sf = self.stl.skew_factor
@@ -273,3 +274,4 @@ class SkewT_plotly:
                 mode='lines', name=name, line=dict(color=color, width=width, dash=dash),
                 showlegend=False,
             ))
+        return self.fig

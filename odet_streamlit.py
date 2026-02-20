@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import date
 
 import open_meteo
-import thermo as thrm
+import parcel as prcl
 import skewT as skt
 from helpers import parse_sounding
 
@@ -77,15 +77,15 @@ with st.sidebar:
 
     fetch = st.button('Fetch & plot', type='primary', width='stretch')
 
-    st.header('Sounding')
-    uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
-
     st.header('Parcel control')
     launch_parcel = st.checkbox('Launch parcel', key='launch_parcel', value=False)
     if launch_parcel:
         parcel_type = st.radio('Parcel type', ['Non-entraining', 'Entraining'], horizontal=True)
         deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaT')
         deltaTd = st.slider('ΔTd (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaTd')
+
+    st.header('Sounding')
+    uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
 
 # Fetch model data.
 if 'meteo' not in st.session_state:
@@ -113,13 +113,13 @@ if has_meteo or has_sounding:
 
     if has_meteo:
         meteo = st.session_state.meteo
-        n_times = meteo['n_times']
+        n_times = meteo.sizes['time']
         _, col_slider, _ = st.columns([1, 2, 1])
         with col_slider:
             t = st.slider('Hour (UTC)', min_value=0, max_value=n_times - 1, value=min(12, n_times - 1))
-        T = meteo['temperature'][t, :]
-        Td = meteo['dew_point'][t, :]
-        p = meteo['p']
+        T = meteo['T'].isel(time=t).values
+        Td = meteo['Td'].isel(time=t).values
+        p = meteo['p'].values
 
     # Build title.
     if has_meteo:
@@ -152,7 +152,7 @@ if has_meteo or has_sounding:
             Td_sfc = sounding_df['Td'].iloc[0]
             p_sfc  = sounding_df['pressure'].iloc[0]
             p_fine = np.geomspace(p_sfc, 100e2, 128)
-        parcel = thrm.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc + deltaTd, p_sfc, p_fine)
+        parcel = prcl.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc + deltaTd, p_sfc, p_fine)
         skew.plot_non_entraining_parcel(parcel)
 
     st.plotly_chart(skew.fig, width='stretch')

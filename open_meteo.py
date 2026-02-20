@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pandas as pd
 import numpy as np
+import xarray as xr
 import requests_cache
 
 import openmeteo_requests
@@ -112,6 +113,13 @@ def get_meteo(lat, lon, model, pressure_lev_vars, pressure_levs, single_lev_vars
         if 'temperature' in key or 'dew_point' in key:
             data[key] += 273.15
 
+    data['time'] = pd.date_range(
+        start=pd.Timestamp(hourly.Time(), unit='s', tz='UTC'),
+        end=pd.Timestamp(hourly.TimeEnd(), unit='s', tz='UTC'),
+        freq=pd.Timedelta(hourly.Interval(), unit='s'),
+        inclusive='left',
+    )
+
     return data
 
 
@@ -136,8 +144,8 @@ def get_sounding(lat, lon, model, date_str):
 
     Returns:
     -------
-    dict
-        Dictionary with meteo data in SI units.
+    xr.Dataset
+        Dataset with dims (time, p) in SI units.
     """
 
     pressure_levs = [1000, 975, 950, 925, 900, 850, 800, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30]
@@ -148,15 +156,34 @@ def get_sounding(lat, lon, model, date_str):
 
     p = np.array(pressure_levs) * 100.0
 
-    # Derive dewpoint from relative humidity.
+    # Derived thermo quantities.
     rh = meteo['relative_humidity'] / 100.0
-    q = rh * thrm.qsat(meteo['temperature'], p[np.newaxis, :])
+    qs = thrm.qsat(meteo['temperature'], p[np.newaxis, :])
+    qt = rh * qs
+    ql = np.maximum(0, qt - qs)
 
-    # Add to data dictionary.
-    meteo['dew_point'] = thrm.dewpoint(q, p[np.newaxis, :])
-    meteo['specific_humidity'] = q
-    meteo['p'] = p
-    meteo['n_times'] = meteo['temperature'].shape[0]
-    meteo['pressure_levs'] = pressure_levs
+    Td = thrm.dewpoint(qt, p[np.newaxis, :])
 
-    return meteo
+    theta = meteo['temperature'] / thrm.exner(p[np.newaxis, :])
+    thetav = thrm.virtual_temp(theta, qt, ql=ql)
+
+    z = meteo['geopotential_height']
+    z_agl = z - z[:, 0:1]
+
+    p_coord = ('time', 'p')
+    coords  = {'time': meteo['time'], 'p': p}
+
+    # Return Xarray Dataset.
+    return xr.Dataset({
+        'z':      (p_coord, z),
+        'z_agl':  (p_coord, z_agl),
+        'T':      (p_coord, meteo['temperature']),
+        'Td':     (p_coord, Td),
+        'rh':     (p_coord, rh),
+        'ws':     (p_coord, meteo['wind_speed']),
+        'wd':     (p_coord, meteo['wind_direction']),
+        'qt':     (p_coord, qt),
+        'ql':     (p_coord, ql),
+        'theta':  (p_coord, theta),
+        'thetav': (p_coord, thetav)
+    }, coords=coords)
