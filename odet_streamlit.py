@@ -6,6 +6,7 @@ from datetime import date
 import open_meteo
 import parcel as prcl
 import skewT as skt
+import thermo as thrm
 from helpers import parse_sounding
 
 @st.cache_resource
@@ -82,7 +83,9 @@ with st.sidebar:
     if launch_parcel:
         parcel_type = st.radio('Parcel type', ['Non-entraining', 'Entraining'], horizontal=True)
         deltaT = st.slider('ΔT (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaT')
-        deltaTd = st.slider('ΔTd (K)', min_value=-5.0, max_value=20.0, value=0.0, step=0.5, key='deltaTd')
+        deltaq = st.slider('Δq (g/kg)', min_value=0.0, max_value=10.0, value=0.0, step=0.1, key='deltaq') * 1e-3
+        if parcel_type == 'Entraining':
+            area_plume = st.slider('Fire area (km²)', min_value=0.1, max_value=10.0, value=0.3, step=0.1) * 1e6
 
     st.header('Sounding')
     uploaded_file = st.file_uploader('Upload sounding CSV', type='csv')
@@ -152,8 +155,24 @@ if has_meteo or has_sounding:
             Td_sfc = sounding_df['Td'].iloc[0]
             p_sfc  = sounding_df['pressure'].iloc[0]
             p_fine = np.geomspace(p_sfc, 100e2, 128)
-        parcel = prcl.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc + deltaTd, p_sfc, p_fine)
-        skew.plot_non_entraining_parcel(parcel)
+
+        if parcel_type == 'Non-entraining':
+            q_sfc = thrm.qsat(Td_sfc, p_sfc)
+            Td_sfc_new = thrm.dewpoint(q_sfc + deltaq, p_sfc)
+            parcel = prcl.calc_non_entraining_parcel(T_sfc + deltaT, Td_sfc_new, p_sfc, p_fine)
+            skew.plot_non_entraining_parcel(parcel)
+        else:
+            plume = prcl.calc_entraining_parcel(
+                meteo['z_agl'][t,:].values,
+                meteo['theta'][t,:].values,
+                meteo['thetav'][t,:].values,
+                meteo['qt'][t,:].values,
+                p,
+                dtheta_plume_s=deltaT,
+                dq_plume_s=deltaq,
+                area_plume_s=area_plume,
+            )
+            skew.plot_entraining_parcel(plume)
 
     st.plotly_chart(skew.fig, width='stretch')
 else:

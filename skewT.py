@@ -268,10 +268,25 @@ class SkewT_plotly:
 
     def plot_non_entraining_parcel(self, parcel, name='Parcel', color='black', width=2, dash='4px,2px'):
         sf = self.stl.skew_factor
-        for key_T, key_p in [('T_isohume', 'p_isohume'), ('T_dry', 'p_dry'), ('T_moist', 'p_moist')]:
+        for i, (key_T, key_p) in enumerate([('T_isohume', 'p_isohume'), ('T_dry', 'p_dry'), ('T_moist', 'p_moist')]):
             self.fig.add_trace(go.Scatter(
                 x=skew_transform(parcel[key_T], parcel[key_p], sf), y=parcel[key_p],
                 mode='lines', name=name, line=dict(color=color, width=width, dash=dash),
-                showlegend=False,
+                showlegend=i == 0,
             ))
+        return self.fig
+
+    def plot_entraining_parcel(self, plume, name='Plume', color='black', width=2, dash='4px,2px'):
+        sf = self.stl.skew_factor
+        line_kw = dict(color=color, width=width, dash=dash)
+        self.fig.add_trace(go.Scatter(
+            x=skew_transform(plume['T'], plume['p'], sf), y=plume['p'],
+            mode='lines', name=name, line=line_kw,
+        ))
+        below_lcl = plume['type'] == 0
+        self.fig.add_trace(go.Scatter(
+            x=skew_transform(plume['Td'][below_lcl], plume['p'][below_lcl], sf), y=plume['p'][below_lcl],
+            mode='lines', name=name, line=line_kw,
+            showlegend=False,
+        ))
         return self.fig
