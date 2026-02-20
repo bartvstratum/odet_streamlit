@@ -171,6 +171,7 @@ if has_meteo or has_sounding:
                 dtheta_plume_s=deltaT,
                 dq_plume_s=deltaq,
                 area_plume_s=area_plume,
+                z_max=12000
             )
             skew.plot_entraining_parcel(plume)
 
